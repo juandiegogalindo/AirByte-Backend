@@ -1,0 +1,13 @@
+estacion,fecha_hora,archivo_origen,Dir Viento,PM10,PM2.5,Precipitacion,Temperatura,Vel Viento
+Kennedy,2024-12-31 01:00:00,Kennedy/2024/Kennedy_2024-03_2025-03.xlsx,326,28.5,15.5,0,,0.6
+Kennedy,2024-12-31 19:00:00,Kennedy/2024/Kennedy_2024-03_2025-03.xlsx,292,27.5,9.4,0,,2.2
+Kennedy,2024-12-31 22:00:00,Kennedy/2024/Kennedy_2024-03_2025-03.xlsx,339,37,26.5,0,,1.5
+Kennedy,2025-01-01 01:00:00,Kennedy/2024/Kennedy_2024-03_2025-03.xlsx,335,86.8,66.5,0,,0.5
+Kennedy,2025-01-02 01:00:00,Kennedy/2024/Kennedy_2024-03_2025-03.xlsx,354,21.7,14.1,0,,0.8
+Tunal,2024-12-31 01:00:00,Tunal/2024/Tunal_2024-03_2025-03.xlsx,283,81,34,0,,0.6
+Tunal,2024-12-31 19:00:00,Tunal/2024/Tunal_2024-03_2025-03.xlsx,301,42,18,0,,1.6
+Tunal,2024-12-31 22:00:00,Tunal/2024/Tunal_2024-03_2025-03.xlsx,342,66,34,0,,1.1
+Tunal,2025-01-01 01:00:00,Tunal/2024/Tunal_2024-03_2025-03.xlsx,201,52,42,0,,0.6
+Tunal,2025-01-02 01:00:00,Tunal/2024/Tunal_2024-03_2025-03.xlsx,188,37,12,0,,0.7
+Tunal,2025-01-01 01:00:00,Tunal/2025/Tunal_2025.xlsx,201,52,42,0,,0.6
+Tunal,2025-01-02 01:00:00,Tunal/2025/Tunal_2025.xlsx,188,37,12,0,,0.7

@@ -1,0 +1,26 @@
+{
+  "estacion": "Tunal",
+  "fecha_hora": "2025-01-01 01:00:00",
+  "fecha_pronostico": "2025-01-02 01:00:00",
+  "entradas": {
+    "PM2.5_actual": 42.0,
+    "PM10_actual": 52.0,
+    "Precipitacion_actual": 0.0,
+    "Temperatura_actual": null,
+    "Vel Viento_actual": 0.6,
+    "Dir Viento_actual": 201.0,
+    "hora": 1,
+    "mes": 1,
+    "estacion_Carvajal-Sevillana": false,
+    "estacion_Kennedy": false,
+    "estacion_Puente Aranda": false,
+    "estacion_Tunal": true,
+    "estacion_Usaquen": false,
+    "pm25_hace_1h": null,
+    "pm25_hace_3h": 34.0,
+    "pm25_hace_6h": 18.0,
+    "pm25_hace_24h": 34.0
+  },
+  "pm25_predicho": 21.4587806153477,
+  "pm25_observado": 12.0
+}

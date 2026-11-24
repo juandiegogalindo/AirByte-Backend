@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1326">
+  <title>{{ codigo }} · Air-Byte</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, "Segoe UI", sans-serif; color: #dce6f7; background: #0b1326; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(ellipse at 50% 0, #18304b 0, #0b1326 58%); }
+    main { width: min(100%, 620px); padding: clamp(28px, 7vw, 58px); border: 1px solid #29364c; border-radius: 20px; background: #131b2eee; box-shadow: 0 24px 80px #03081166; text-align: center; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 36px; color: #dce6f7; font-size: 18px; font-weight: 800; text-decoration: none; }
+    .mark { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #248cbb; border-radius: 10px; color: #89ceff; background: #142842; font-size: 20px; }
+    .code { margin: 0; color: #4cd7f6; font: 700 clamp(72px, 17vw, 112px)/1 "Segoe UI", sans-serif; letter-spacing: -.07em; }
+    h1 { margin: 18px 0 8px; font-size: clamp(23px, 5vw, 32px); letter-spacing: -.035em; }
+    p { margin: 0 auto; max-width: 430px; color: #aebbd0; line-height: 1.7; }
+    .actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+    .actions a { padding: 12px 17px; border: 1px solid #33445e; border-radius: 9px; color: #c6d4e8; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .actions a:first-child { border-color: #0ea5e9; background: #0ea5e9; color: #062033; }
+    .actions a:hover { filter: brightness(1.1); }
+    @media (prefers-color-scheme: light) { :root { color-scheme: light; color: #17263f; background: #f1f5fa; } body { background: radial-gradient(ellipse at 50% 0, #d9effb 0, #f1f5fa 58%); } main { border-color: #d4deeb; background: #fff; box-shadow: 0 24px 80px #34445a1a; } .brand { color: #17263f; } p { color: #53647d; } .actions a { border-color: #cbd7e6; color: #263750; } }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="brand" href="{{ frontend_url }}/"><span class="mark" aria-hidden="true">≈</span><span>Air-Byte</span></a>
+    <p class="code" aria-label="Error {{ codigo }}">{{ codigo }}</p>
+    <h1>{{ titulo }}</h1>
+    <p>{{ descripcion }}</p>
+    <div class="actions">
+      <a href="{{ frontend_url }}/">Volver a calidad del aire</a>
+      <a href="{{ frontend_url }}/comunidad">Ir a comunidad</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Entorno de inferencia local: Python 3.12.14.
+# El artefacto de Colab identifica scikit-learn 1.6.1.
+scikit-learn==1.6.1
+pandas==2.2.3
+numpy==2.0.2
+joblib==1.4.2
