@@ -19,6 +19,8 @@ if DEBUG:
         "http://127.0.0.1:5173",
     ]))
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_AGE = 14 * 24 * 3600
 CSRF_FAILURE_VIEW = "config.api.csrf_failure"
 HISTORICO = os.getenv("AIRBYTE_HISTORICO", "rmcab-v1")
@@ -40,6 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
