@@ -13,7 +13,7 @@ class ComunidadTest(TestCase):
         csrf = lambda client: {"HTTP_X_CSRFTOKEN": client.get(api + "/sesion").json()["csrf"]}
         self.assertEqual(visitante.get(api + "/reportes").status_code, 200)
         self.assertEqual(visitante.post(api + "/reportes", reporte, content_type="application/json", **csrf(visitante)).status_code, 401)
-        self.assertEqual(autor.post(api + "/registro", {"usuario": "usuario-demo", "contrasena": clave},
+        self.assertEqual(autor.post(api + "/registro", {"usuario": "usuario-demo", "contrasena": clave, "acepto_terminos": True},
             content_type="application/json", **csrf(autor)).status_code, 201)
         self.assertEqual(autor.post(api + "/sesion", {"usuario": "usuario-demo", "contrasena": clave},
             content_type="application/json", **csrf(autor)).status_code, 200)
