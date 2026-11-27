@@ -1,83 +1,333 @@
-# Air-Byte
+<div align="center">
 
-Pronóstico de la concentración horaria de PM2,5 a 24 horas por estación de Bogotá. La arquitectura prevista combina React con TypeScript, un backend Django y PostgreSQL.
+# AirByte · Backend
 
-## Reproducir el entrenamiento
+**API y motor de pronóstico de calidad del aire (PM2.5) para Bogotá**
 
-1. Desde la raíz, ejecuta `python scripts/consolidate_rmcab.py` sobre los libros históricos en `datos/RMCAB/`.
-2. Ejecuta `python scripts/preparar_dataset_modelo.py`. El CSV utilizado en el entrenamiento fue `datos/RMCAB/dataset_modelo_pm25_24h.csv`, con 239.097 filas de datos, 23.711.091 bytes y SHA-256 `df7dfecd4446fe50e779353d7c6756d2011a914ee41268bc69a6d65744a08948`.
-3. Abre [el cuaderno original](notebooks/air_byte.ipynb) en Colab, ejecuta ambas celdas en orden y selecciona el CSV cuando se solicite. La primera entrena el modelo base. La segunda incorpora las observaciones de PM2,5 de hace 1, 3, 6 y 24 horas y guarda [el modelo elegido](modelo/air_byte_pm25_24h_historial.joblib).
+Django · PostgreSQL · scikit-learn · Google OAuth 2.0
 
-El objetivo es la observación en la misma estación exactamente 24 horas después. El entrenamiento utiliza objetivos anteriores a 2024. El cuaderno compara las variantes en 2024 y evalúa 2025 sobre horas con PM2,5 actual observado. El modelo elegido obtuvo un MAE de 7,12 µg/m³ en 28.527 casos de 2025, frente a 8,19 con persistencia. En las 1.093 horas de pico el error absoluto medio fue 22,44 µg/m³.
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-6.1-092E20?logo=django&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.6.1-F7931E?logo=scikitlearn&logoColor=white)
+![Render](https://img.shields.io/badge/Deploy-Render-46E3B7?logo=render&logoColor=black)
 
-## Verificar la integración con Django
+[Aplicación en vivo](https://airbyte-eight.vercel.app) ·
+[API](https://airbyte-backend.onrender.com/api/v1/estaciones) ·
+[Repositorio del frontend](https://github.com/juandiegogalindo/AirByte-Frontend)
 
-El modelo guarda los nombres y el orden de las columnas en `feature_names_in_`. Los campos actuales marcados como imputados se presentan al modelo como faltantes. Los retardos usan observaciones de la misma estación a la hora exacta. El caso de referencia en `notebooks/prediccion_referencia.json` contiene las entradas en orden y la salida del modelo guardado. El PM2,5 observado al día siguiente se incluye únicamente para evaluación.
+</div>
 
-Las dependencias para reproducir la inferencia local están en [requirements.txt](notebooks/requirements.txt). El archivo del modelo registra scikit-learn 1.6.1. El cuaderno exportado conserva sus resultados, pero no registró el inventario completo de versiones de Colab.
+---
 
-## Ejecutar la demo
+## Tabla de contenidos
 
-Instala Python 3.12.14, PostgreSQL 18 y Node compatible con Vite. En PostgreSQL, crea un rol con contraseña y una base propia. Para la suite de integración, el rol de desarrollo necesita permiso para crear la base temporal.
+1. [Descripción](#descripción)
+2. [Características](#características)
+3. [Arquitectura](#arquitectura)
+4. [Tecnologías](#tecnologías)
+5. [Estructura del repositorio](#estructura-del-repositorio)
+6. [Datos y modelo predictivo](#datos-y-modelo-predictivo)
+7. [API](#api)
+8. [Instalación local](#instalación-local)
+9. [Variables de entorno](#variables-de-entorno)
+10. [Pruebas](#pruebas)
+11. [Despliegue](#despliegue)
+12. [Solución de problemas](#solución-de-problemas)
+13. [Seguridad](#seguridad)
+14. [Equipo](#equipo)
 
-```powershell
-createuser -P --createdb airbyte
-createdb -O airbyte airbyte
-Copy-Item .env.example .env
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r backend/requirements.lock
-python -m pip check
-python backend/manage.py verificar_modelo
-python backend/manage.py migrate
-python backend/manage.py check --database default
+---
+
+## Descripción
+
+AirByte es una plataforma que permite consultar **qué tan contaminado está el aire en Bogotá** y anticipar cómo evolucionará durante las próximas 24 horas.
+
+Este repositorio contiene el **backend**: un servidor Django que
+
+- almacena y sirve las mediciones horarias de PM2.5 de la Red de Monitoreo de Calidad del Aire de Bogotá (RMCAB),
+- ejecuta un modelo de aprendizaje automático para pronosticar la concentración de PM2.5,
+- gestiona cuentas de usuario mediante inicio de sesión con Google,
+- y ofrece los módulos de comunidad (comentarios y reportes) y de moderación.
+
+El cliente web vive en un repositorio aparte: [AirByte-Frontend](https://github.com/juandiegogalindo/AirByte-Frontend).
+
+## Características
+
+- **Consulta por estación**: estado actual del aire en cada estación de monitoreo.
+- **Pronóstico a 24 horas** de PM2.5 con un modelo entrenado con scikit-learn.
+- **Histórico** de mediciones horarias (2019–2025) con más de 270 000 registros.
+- **Autenticación con Google (OAuth 2.0)** mediante Authlib, con sesiones seguras y protección CSRF.
+- **Comunidad**: comentarios y reportes de usuarios.
+- **Moderación y sanciones** de cuentas desde el panel de administración.
+- **Versionado de datasets**: cada conjunto de datos se registra con su código, huella `sha256` y fuente.
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    U["Usuario<br/>(navegador)"] --> V["Frontend<br/>React + Vite<br/>Vercel"]
+    V -- "/api · /admin · /static · /media<br/>(rewrites de Vercel)" --> R["Backend<br/>Django + Gunicorn<br/>Render"]
+    R --> DB[("PostgreSQL<br/>Neon")]
+    R --> M["Modelo<br/>scikit-learn (.joblib)"]
+    R -- "OAuth 2.0" --> G["Google"]
 ```
 
-Completa la contraseña PostgreSQL y una clave aleatoria larga para Django en el archivo `.env` antes de ejecutar los comandos de Django. La configuración se lee de ese archivo y las variables de entorno tienen prioridad.
+El frontend reenvía las rutas `/api`, `/admin`, `/static` y `/media` al backend. Como el navegador solo habla con un único origen, **no se requiere configurar CORS** y las cookies de sesión funcionan sin ajustes adicionales.
 
-Coloca los 57 libros originales bajo `datos/RMCAB/<estación>/<año>/` o recupera el consolidado congelado del equipo. [La RMCAB publica los datos históricos](https://www.ambientebogota.gov.co/es/red-de-monitoreo-de-calidad-del-aire-de-bogota-rmcab). La huella de `dataset_RMCAB_limpio.csv` para la demo es `47b3962edd58428384500e7a3010e85f7e86b78a32cd4e4d8f1f152cca69dad8`. El validador rechaza una copia con contenido distinto al importar como `rmcab-v1`.
+## Tecnologías
+
+| Capa | Tecnología |
+| --- | --- |
+| Lenguaje | Python 3.12 |
+| Framework web | Django 6.1 |
+| Base de datos | PostgreSQL (Neon en producción) con `psycopg` 3 |
+| Autenticación | Google OAuth 2.0 con Authlib |
+| Machine learning | scikit-learn 1.6.1, pandas 2.2.3, numpy 2.0.2, joblib 1.4.2 |
+| Servidor de aplicación | Gunicorn |
+| Archivos estáticos | WhiteNoise |
+| Despliegue | Render (backend), Neon (base de datos), Vercel (frontend) |
+
+## Estructura del repositorio
+
+```text
+AirByte-Backend/
+├── backend/                 # Proyecto Django
+│   ├── config/              # Configuración, URLs, WSGI y middlewares
+│   ├── aire/                # Estaciones, localidades, mediciones y pronóstico
+│   ├── comunidad/           # Comentarios y reportes
+│   ├── cuentas/             # Perfiles, identidad de Google y sanciones
+│   ├── templates/           # Plantillas (páginas de error)
+│   ├── manage.py
+│   ├── requirements.txt     # Dependencias de la aplicación
+│   └── requirements.lock
+├── datos/RMCAB/             # Datos de origen de la red de monitoreo
+├── db-scripts/              # Scripts de PowerShell y SQL para la base local
+├── modelo/                  # Artefactos del modelo entrenado (.joblib)
+├── notebooks/               # Notebook de entrenamiento y requisitos de inferencia
+├── scripts/                 # Utilidades auxiliares
+├── docs/                    # Documentación
+├── .env.example             # Plantilla de variables de entorno
+└── README.md
+```
+
+## Datos y modelo predictivo
+
+**Fuente de datos.** Mediciones horarias de la RMCAB para cinco estaciones de Bogotá: Carvajal-Sevillana, Kennedy, Puente Aranda, Tunal y Usaquén, entre enero de 2019 y diciembre de 2025. En total, la base contiene más de **271 000 mediciones horarias**.
+
+**Modelo.** El pronóstico de PM2.5 a 24 horas se entrena en el notebook [`notebooks/air_byte.ipynb`](notebooks/air_byte.ipynb) y se exporta como archivos `.joblib` en [`modelo/`](modelo/):
+
+| Archivo | Uso |
+| --- | --- |
+| `air_byte_pm25_24h_historial.joblib` | Modelo que se carga por defecto en el backend |
+| `air_byte_pm25_24h.joblib` | Variante de pronóstico a 24 horas |
+| `air_byte_pm25_horario.joblib` | Variante de pronóstico horario |
+
+La ruta del modelo se puede cambiar con la variable `AIRBYTE_MODEL_PATH`. Las versiones de `scikit-learn`, `numpy` y `joblib` están fijadas en `notebooks/requirements.txt` para que coincidan con las usadas durante el entrenamiento; **no las actualices sin volver a exportar el modelo**.
+
+> AirByte es un proyecto informativo y académico. Para decisiones de salud o de política pública, consulta siempre las fuentes oficiales de la autoridad ambiental.
+
+## API
+
+Las rutas se publican bajo el prefijo `/api/v1/`.
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/v1/estaciones` | Lista de estaciones con su localidad, coordenadas y rango de datos disponible |
+| `GET` | `/api/v1/actual?estacion=<slug>` | Estado actual y pronóstico de una estación |
+| `GET` | `/api/v1/sesion` | Estado de la sesión del usuario |
+| `GET` | `/api/v1/auth/google/callback` | Retorno del flujo OAuth con Google |
+
+Los *slugs* de estación válidos son `carvajal-sevillana`, `kennedy`, `puente-aranda`, `tunal` y `usaquen`.
+
+Ejemplo:
+
+```bash
+curl "https://airbyte-backend.onrender.com/api/v1/estaciones"
+```
+
+```json
+{
+  "resultados": [
+    {
+      "slug": "tunal",
+      "nombre": "Tunal",
+      "localidad": "tunjuelito",
+      "localidad_nombre": "Tunjuelito",
+      "latitud": 4.576225,
+      "longitud": -74.130956,
+      "desde": "2019-01-01T01:00:00-05:00",
+      "hasta": "2025-12-31T23:00:00-05:00"
+    }
+  ]
+}
+```
+
+El resto de endpoints (histórico, comunidad, perfil y moderación) se encuentra en los archivos `urls.py` de cada aplicación. El panel de administración de Django está disponible en `/admin/`.
+
+## Instalación local
+
+### Requisitos
+
+- Python **3.12**
+- PostgreSQL **14 o superior**
+- Git
+- Credenciales OAuth de Google (solo si vas a probar el inicio de sesión)
+
+### Pasos
 
 ```powershell
-python backend/manage.py importar_rmcab --archivo datos/RMCAB/dataset_RMCAB_limpio.csv --version-datos rmcab-v1
-python backend/manage.py test aire cuentas comunidad
+# 1. Clonar el repositorio
+git clone https://github.com/juandiegogalindo/AirByte-Backend.git
+cd AirByte-Backend
+
+# 2. Crear y activar el entorno virtual
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1          # Windows (PowerShell)
+# source .venv/bin/activate           # Linux / macOS
+
+# 3. Instalar dependencias
+pip install -r backend/requirements.txt
+
+# 4. Configurar variables de entorno
+Copy-Item .env.example .env           # Linux / macOS: cp .env.example .env
+# Edita .env con tus valores (ver la sección «Variables de entorno»)
+```
+
+**5. Preparar la base de datos.** Los scripts de [`db-scripts/`](db-scripts/) (`crear-base.ps1`, `poblar-base.ps1` y `eliminar-base.ps1`) automatizan la creación y la carga de datos en una instancia local de PostgreSQL. Sigue las instrucciones de [`db-scripts/README.md`](db-scripts/README.md).
+
+```powershell
+# 6. Aplicar las migraciones
+python backend/manage.py migrate
+
+# 7. Iniciar el servidor de desarrollo
 python backend/manage.py runserver
 ```
 
-Agrega `--estacion tunal` para cargar solo esa estación. Repetir la carga conserva los mismos datos y la procedencia. El comando informa horas únicas, conflictos, duplicados y faltantes. La opción `--version-datos` evita un conflicto con la opción `--version` que Django incorpora en todos sus comandos.
+La API queda disponible en <http://127.0.0.1:8000/api/v1/estaciones>.
 
-En otra terminal, desde `frontend`, ejecuta `npm ci` y `npm run dev`. Abre [Air-Byte](http://localhost:5173). React envía las consultas del mismo origen a Django mediante el proxy de Vite. Para publicar, configura un servidor HTTPS que sirva `frontend/dist`, enrute `/api` y `/admin` a Django, y sirva la carpeta generada por `collectstatic` en `/static`. Configura los hosts permitidos y desactiva `DJANGO_DEBUG`.
+Para usar la interfaz web en local, levanta también el [frontend](https://github.com/juandiegogalindo/AirByte-Frontend) (`npm run dev`): su servidor de desarrollo redirige `/api` hacia este backend.
 
-### Versiones del histórico
+## Variables de entorno
 
-La edición congelada `rmcab-v1` reproduce la referencia de Tunal. El consolidador usado en el cuaderno descartaba las filas marcadas `24:00`. Para recuperar esas observaciones, ejecuta `python scripts/consolidate_rmcab.py --recuperar-medianoche`. Se genera `dataset_RMCAB_limpio_v2.csv` y se conserva el original. Impórtalo con `--version-datos rmcab-v2` y configura `AIRBYTE_HISTORICO=rmcab-v2` para consultarlo. En la edición corregida, el 40 µg/m³ observado a medianoche cambia la referencia de Tunal de 21,4588 a 20,9489 µg/m³.
+El archivo `.env` se carga desde la raíz del repositorio. **Nunca lo subas a Git**: ya está incluido en `.gitignore`.
 
-### Google y moderación
+| Variable | Obligatoria | Valor por defecto | Descripción |
+| --- | :---: | --- | --- |
+| `DJANGO_SECRET_KEY` | ✅ | — | Clave secreta de Django. Genera una única por entorno. |
+| `DJANGO_DEBUG` | | `0` | `1` activa el modo depuración. Debe ser `0` en producción. |
+| `DJANGO_ALLOWED_HOSTS` | | `localhost,127.0.0.1` | Hosts permitidos, separados por comas y sin espacios. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | | — | Orígenes de confianza para CSRF (con `https://`), separados por comas. |
+| `PGHOST` | | `127.0.0.1` | Host de PostgreSQL. |
+| `PGPORT` | | `5432` | Puerto de PostgreSQL. |
+| `PGDATABASE` | | `airbyte` | Nombre de la base de datos. |
+| `PGUSER` | | `airbyte` | Usuario de la base de datos. |
+| `PGPASSWORD` | | — | Contraseña de la base de datos. |
+| `PGSSLMODE` | | — | Usa `require` para conexiones a Neon. |
+| `GOOGLE_CLIENT_ID` | | — | ID de cliente OAuth de Google. |
+| `GOOGLE_CLIENT_SECRET` | | — | Secreto del cliente OAuth. |
+| `GOOGLE_REDIRECT_URI` | | `http://localhost:5173/api/v1/auth/google/callback` | URI de retorno registrada en Google Cloud. |
+| `FRONTEND_URL` | | `http://localhost:5173` | URL pública del frontend. |
+| `AIRBYTE_HISTORICO` | | `rmcab-v1` | Código de la versión del dataset histórico en uso. |
+| `AIRBYTE_MODEL_PATH` | | `modelo/air_byte_pm25_24h_historial.joblib` | Ruta del modelo de pronóstico. |
 
-Crea un cliente OAuth de tipo **Aplicación web** en Google Cloud, configura la pantalla de consentimiento y registra la URI exacta `http://localhost:5173/api/v1/auth/google/callback`. Añade la URI HTTPS correspondiente en el despliegue. Si el cliente está en estado de prueba, añade los usuarios de la demo en Google Cloud. Completa `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_REDIRECT_URI` en `.env` y reinicia Django. El secreto se queda en el servidor.
+Ejemplo mínimo para desarrollo:
 
-La sesión queda en `django_session` y la identidad de Google en `cuentas_identidad_google`, vinculada a `auth_user`. El backend intercambia el código con Google, valida el token de identidad y abre una sesión local. React usa el token CSRF en escrituras. Los tokens de Google solo viven durante el intercambio. Para vincular una cuenta existente, entra primero con sus credenciales y pulsa **Vincular Google**.
-
-Ejecuta `python backend/manage.py createsuperuser` para administrar la demo. Para una cuenta de moderación, marca **Es staff** y asígnala al grupo **Moderadores** en Django Admin. Selecciona publicaciones y aplica **Ocultar publicaciones seleccionadas**. La comunidad es pública para lectura. La creación y el borrado de contenido propio requieren sesión.
-
-### Guion
-
-- Tunal, 1 de enero de 2025 a las 01:00. Medición 42, pronóstico 21,4587806153477, observado al día siguiente 12 µg/m³.
-- Tunal, 4 de enero a las 05:00. Caso típico de 13, 13,63 y 14 µg/m³.
-- Tunal, 18 de febrero a las 11:00. Episodio alto de 50, 28,30 y 92 µg/m³.
-- Publica un reporte y un comentario en Tunjuelito, léelos como visitante y oculta el reporte desde Admin.
-
-Todas las horas corresponden a Bogotá. El promedio horario y el horizonte del pronóstico se indican por separado. El MAE del modelo de 7,12 µg/m³ frente a 8,19 de persistencia corresponde a su evaluación de 2025.
-
-## Vista Ahora y pronóstico por hora
-
-La portada consulta la última medición horaria de PM2,5 de la RMCAB para la estación elegida. Presenta fecha, hora y antigüedad. El pronóstico contiene 24 valores, desde una hasta 24 horas después de esa medición, en la zona America/Bogota. Cuando la última lectura tiene tres horas o más, la interfaz indica el retraso y suspende el pronóstico. La pestaña Histórico conserva la demo reproducible de 2025.
-
-La vista consulta la RMCAB como máximo una vez cada cinco minutos por proceso y almacena las lecturas en PostgreSQL bajo `rmcab-actual`. Para acumular retardos mientras la aplicación está cerrada, programa `python backend/manage.py actualizar_rmcab` cada hora en el servidor. Si un retardo exacto falta, el modelo lo recibe como faltante. Una caída del proveedor conserva la fecha de la última medición guardada.
-
-El artefacto `modelo/air_byte_pm25_horario.joblib` contiene un modelo por horizonte, entrenado con objetivos anteriores a 2024 y evaluado por separado en 2025. Para regenerarlo:
-
-```powershell
-python backend/manage.py entrenar_pronostico_horario --archivo datos/RMCAB/dataset_RMCAB_limpio.csv
+```dotenv
+DJANGO_SECRET_KEY=cambia-esto-por-una-clave-larga-y-aleatoria
+DJANGO_DEBUG=1
+PGHOST=127.0.0.1
+PGPORT=5432
+PGDATABASE=airbyte
+PGUSER=airbyte
+PGPASSWORD=tu-contraseña-local
 ```
 
-El comando muestra el MAE y la persistencia por horizonte. El artefacto original para la referencia de Tunal sigue disponible en Histórico.
+Para generar una clave secreta:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
+```
+
+## Pruebas
+
+```powershell
+python backend/manage.py test
+```
+
+## Despliegue
+
+El backend se despliega en **Render**, la base de datos vive en **Neon** y el frontend en **Vercel**.
+
+### 1. Base de datos en Neon
+
+1. Crea un proyecto en [Neon](https://neon.tech) en la misma región que tu servicio de Render (en este proyecto, AWS US East 2, Ohio).
+2. Copia los datos de conexión de la rama `production` usando la conexión **directa** (sin `-pooler` en el host).
+3. Configura `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` y `PGSSLMODE=require`.
+
+### 2. Servicio web en Render
+
+| Campo | Valor |
+| --- | --- |
+| Repositorio / rama | `AirByte-Backend` · `main` |
+| Región | La misma de Neon (Ohio) |
+| Root Directory | *(vacío; el modelo se busca desde la raíz del repo)* |
+| Runtime | Python 3 |
+| Build Command | `pip install -r backend/requirements.txt && python backend/manage.py collectstatic --noinput` |
+| Start Command | `gunicorn --chdir backend config.wsgi:application --workers 1 --threads 2 --timeout 120` |
+
+Variables de entorno adicionales en Render:
+
+```dotenv
+PYTHON_VERSION=3.12.10
+DJANGO_DEBUG=0
+DJANGO_ALLOWED_HOSTS=airbyte-backend.onrender.com,airbyte-eight.vercel.app
+DJANGO_CSRF_TRUSTED_ORIGINS=https://airbyte-eight.vercel.app
+GOOGLE_REDIRECT_URI=https://airbyte-eight.vercel.app/api/v1/auth/google/callback
+FRONTEND_URL=https://airbyte-eight.vercel.app
+```
+
+más `DJANGO_SECRET_KEY`, las variables `PG*` y las credenciales de Google descritas arriba.
+
+### 3. Inicio de sesión con Google
+
+En [Google Cloud Console](https://console.cloud.google.com) crea un cliente OAuth de tipo **Aplicación web** y registra:
+
+- **Orígenes de JavaScript autorizados**: `https://airbyte-eight.vercel.app` y `http://localhost:5173`
+- **URIs de redireccionamiento autorizados**:
+  `https://airbyte-eight.vercel.app/api/v1/auth/google/callback` y
+  `http://localhost:5173/api/v1/auth/google/callback`
+
+Para que cualquier cuenta de Google pueda entrar, publica la aplicación en *Google Auth Platform → Público*. Con los permisos básicos (`openid`, correo y perfil) no se requiere verificación adicional.
+
+### Limitaciones del plan gratuito
+
+- Render **suspende el servicio tras ~15 minutos sin tráfico**; la primera petición puede tardar cerca de un minuto en responder.
+- El disco de Render es efímero: los archivos subidos a `MEDIA_ROOT` (por ejemplo, fotos de perfil) se pierden en cada reinicio o redespliegue. Para conservarlos, usa un almacenamiento externo (S3, Cloudinary, etc.).
+
+## Solución de problemas
+
+| Síntoma | Causa probable y solución |
+| --- | --- |
+| `Error 400: redirect_uri_mismatch` | El URI de retorno enviado no coincide, carácter por carácter, con uno registrado en Google Cloud. Revisa `GOOGLE_REDIRECT_URI` y la lista de URIs autorizados. |
+| `DisallowedHost` / respuesta 400 | Falta el dominio en `DJANGO_ALLOWED_HOSTS`. Sepáralos con comas y **sin espacios**. |
+| `CSRF verification failed` | Agrega el origen del frontend (con `https://`) a `DJANGO_CSRF_TRUSTED_ORIGINS`. |
+| Error de conexión SSL a la base | Define `PGSSLMODE=require` y usa el host directo de Neon. |
+| `KeyError: 'DJANGO_SECRET_KEY'` | Falta la variable de entorno o el archivo `.env` no está en la raíz del repositorio. |
+| El modelo no carga o da error de versión | Verifica que `scikit-learn`, `numpy` y `joblib` coincidan con `notebooks/requirements.txt` y que uses Python 3.12. |
+| El despliegue en Render falla al instalar | Confirma `PYTHON_VERSION=3.12.10` y que `gunicorn` figure en `backend/requirements.txt`. |
+| La primera carga tarda mucho | Es el arranque en frío del plan gratuito de Render. |
+
+## Seguridad
+
+- Mantén fuera de Git el `.env`, las claves y las contraseñas. Solo se versiona `.env.example`.
+- Usa una `DJANGO_SECRET_KEY` distinta en cada entorno y `DJANGO_DEBUG=0` en producción.
+- Con `DJANGO_DEBUG=0`, las cookies de sesión y CSRF se marcan como `Secure`.
+- Si una credencial se expone por accidente, **rótala de inmediato** (nuevo secreto en Google Cloud, `Reset password` en Neon, nueva clave de Django).
+
+## Equipo
+Proyecto desarrollado por los participantes en la Universidad Piloto de Colombia (2026-2).
+- **Juan Diego Galindo Montenegro** — [@juandiegogalindo](https://github.com/juandiegogalindo)
+- **Cristian Cortes Bejarano** — [@CristianCortes1](https://github.com/CristianCortes1).
+
+Datos de calidad del aire: Red de Monitoreo de Calidad del Aire de Bogotá (RMCAB).
